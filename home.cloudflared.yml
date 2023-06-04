@@ -1,0 +1,15 @@
+# Argo Tunnel config
+tunnel: ********************
+credentials-file: /path/to/.cloudflared/****************.json
+ingress:
+  - hostname: casa.dantis.me
+    service: http://localhost:8123
+  - hostname: xvr-casa.dantis.me
+    service: http://172.16.2.102:80
+  - hostname: piped.dantis.me
+    service: http://localhost:8080
+  - hostname: piped-api.dantis.me
+    service: http://localhost:8080
+  - hostname: piped-proxy.dantis.me
+    service: http://localhost:8080
+  - service: http_status:404
