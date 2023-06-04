@@ -1,0 +1,43 @@
+# Docker Compose spec for running Home Assistant and go2rtc (for WebRTC support)
+# by @jareddantis, 2023
+#
+# Base path: /etc/docker/compose/homeassistant
+# Required paths:
+#   - config/, go2rtc/
+#     > just create empty directories
+#
+# Notes:
+#   1. Add the following to your configuration.yaml for HACS support:
+#        # HACS
+#        my:
+#   2. Add the following to your configuration.yaml for reverse proxy support:
+#        # Reverse proxy
+#        http:
+#          use_x_forwarded_for: true
+#          trusted_proxies:
+#            - 172.16.0.0/24     # Change to your local subnet or reverse proxy IP
+#            - ::1               # For Argo Tunnel
+
+version: '3'
+
+services:
+  homeassistant:
+    container_name: homeassistant
+    image: ghcr.io/home-assistant/home-assistant:stable
+    network_mode: host
+    privileged: true
+    volumes:
+      - /etc/docker/compose/homeassistant/config:/config
+      - /etc/localtime:/etc/localtime:ro
+    restart: unless-stopped
+    environment:
+      TZ: 'Asia/Manila'
+  go2rtc:
+    image: alexxit/go2rtc
+    network_mode: host       # important for WebRTC, HomeKit, UDP cameras
+    privileged: true         # only for FFmpeg hardware transcoding
+    volumes:
+      - /etc/docker/compose/homeassistant/go2rtc:/config
+    restart: unless-stopped  # autorestart on fail or config change from WebUI
+    environment:
+      TZ: 'Asia/Manila'

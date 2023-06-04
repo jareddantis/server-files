@@ -1,0 +1,75 @@
+# Docker Compose spec for running Piped with nginx as reverse proxy
+# by @jareddantis, 2023
+#
+# Base path: /etc/docker/compose/piped
+# Required paths:
+#   - config/
+#     > clone https://github.com/TeamPiped/Piped-Docker, run configure-instance.sh,
+#       the config/ directory to the base path
+#   - proxy-data/, db-data/
+#     > just create empty directories
+#
+# Notes:
+#   1. Remember to change the API hostname in the pipedfrontend entrypoint line to
+#      the hostname you specified while running configure-instance.sh
+
+version: '3'
+
+services:
+  pipedfrontend:
+    image: 1337kavin/piped-frontend:latest
+    restart: unless-stopped
+    depends_on:
+      - piped
+    container_name: piped-frontend
+    # REMEMBER TO CHANGE <API HOSTNAME>
+    entrypoint: ash -c 'sed -i s/pipedapi.kavin.rocks/<API HOSTNAME>/g /usr/share/nginx/html/assets/* && /docker-entrypoint.sh && nginx -g "daemon off;"'
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+  piped-proxy:
+    image: 1337kavin/piped-proxy:latest
+    restart: unless-stopped
+    environment:
+      - UDS=1
+    volumes:
+      - /etc/docker/compose/piped/proxy-data:/app/socket
+      - /etc/localtime:/etc/localtime:ro
+    container_name: piped-proxy
+  piped:
+    image: 1337kavin/piped:latest
+    restart: unless-stopped
+    volumes:
+      - /etc/docker/compose/piped/config/config.properties:/app/config.properties:ro
+      - /etc/localtime:/etc/localtime:ro
+    depends_on:
+      - postgres
+    container_name: piped-backend
+  nginx:
+    image: nginx:mainline-alpine
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - /etc/docker/compose/piped/config/nginx.conf:/etc/nginx/nginx.conf:ro
+      - /etc/docker/compose/piped/config/pipedapi.conf:/etc/nginx/conf.d/pipedapi.conf:ro
+      - /etc/docker/compose/piped/config/pipedproxy.conf:/etc/nginx/conf.d/pipedproxy.conf:ro
+      - /etc/docker/compose/piped/config/pipedfrontend.conf:/etc/nginx/conf.d/pipedfrontend.conf:ro
+      - /etc/docker/compose/piped/config/ytproxy.conf:/etc/nginx/snippets/ytproxy.conf:ro
+      - /etc/docker/compose/piped/proxy-data:/var/run/ytproxy
+      - /etc/localtime:/etc/localtime:ro
+    container_name: nginx
+    depends_on:
+      - piped
+      - piped-proxy
+      - pipedfrontend
+  postgres:
+    image: postgres:15
+    restart: unless-stopped
+    volumes:
+      - /etc/docker/compose/piped/db-data:/var/lib/postgresql/data
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - POSTGRES_DB=piped
+      - POSTGRES_USER=piped
+      - POSTGRES_PASSWORD=changeme
+    container_name: postgres
