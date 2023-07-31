@@ -1,0 +1,53 @@
+# Docker Compose spec for running Calibre, with an interface for uploading books
+# by @jareddantis, 2023
+#
+# Base path: /etc/docker/compose/calibre
+# Required paths:
+#   - config/, dropbox/, filebrowser/
+#     > just create empty directories
+#     > in filebrowser/, create an empty file named filebrowser.db (use `touch`)
+#     > copy settings.json to filebrowser/
+#
+# Notes:
+#   1. If you want to use this with Moon+ Reader, reverse proxy
+#      port 8081 behind a secure tunnel
+
+version: '3.8'
+
+services:
+  calibre:
+    image: lscr.io/linuxserver/calibre:latest
+    container_name: calibre
+    security_opt:
+      - seccomp:unconfined
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Manila
+      - CUSTOM_USER=dantis
+      - PASSWORD=changeme
+    volumes:
+      - /etc/docker/compose/calibre/config:/config
+      - /etc/docker/compose/calibre/dropbox:/dropbox
+    ports:
+      - 8080:8080 # Desktop HTTP
+      # - 8181:8181 # Desktop HTTPS
+      - 8081:8081 # Webserver HTTP
+    devices:
+      - '/dev/dri/card0:/dev/dri/card0'
+      - '/dev/dri/renderD128:/dev/dri/renderD128'
+    restart: unless-stopped
+  filebrowser:
+    image: filebrowser/filebrowser:s6
+    container_name: calibre-filebrowser
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Manila
+    volumes:
+      - /etc/docker/compose/calibre/dropbox:/srv
+      - /etc/docker/compose/calibre/filebrowser/filebrowser.db:/database/filebrowser.db
+      - /etc/docker/compose/calibre/filebrowser/settings.json:/config/settings.json
+    ports:
+      - 8082:80
+    restart: unless-stopped
