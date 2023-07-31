@@ -1,0 +1,28 @@
+# Docker Compose spec for running Piped with nginx as reverse proxy
+# by @jareddantis, 2023
+#
+# Base path: /etc/docker/compose/smokeping
+# Required paths:
+#   - config/, data/
+#     > just create empty directories
+#
+# Notes:
+#   1. Add targets in config/Targets after first run
+
+version: '3.9'
+
+services:
+  smokeping:
+    image: lscr.io/linuxserver/smokeping:latest
+    container_name: smokeping
+    hostname: casa
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Manila
+    volumes:
+      - /etc/docker/compose/smokeping/config:/config
+      - /etc/docker/compose/smokeping/data:/data
+    ports:
+      - '10100:80'
+    restart: unless-stopped
