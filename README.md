@@ -1,2 +1,2 @@
-# mba-server-files
-⚙️ Configuration files for my MacBook Air home server
+# server-files
+⚙️ Configuration files for my home and remote servers
