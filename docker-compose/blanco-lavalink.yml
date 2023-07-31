@@ -1,0 +1,58 @@
+# Docker Compose spec for running Blanco the Discord music bot
+# by @jareddantis, 2023
+#
+# Base path: /etc/docker/compose/blanco
+# Required paths:
+#   - plugins/
+#     > just create empty directory
+#   - config.yml, blanco.db
+#     > follow README @ https://github.com/jareddantis-bots/blanco-bot
+#
+# Notes:
+#   1. I recommend getting a /48 IPv6 block from Tunnelbroker for Lavalink.
+#      If your VPS provider doesn't support Protocol 41 then remove the
+#      LAVALINK_SERVER_RATELIMIT_* env keys in the Lavalink service config.
+#      This makes it more likely for Google to ban your instance though.
+#   2. Change _JAVA_OPTIONS accordingly. 1G is enough for a couple of servers.
+
+version: "3.8"
+
+services:
+  lavalink:
+    image: ghcr.io/lavalink-devs/lavalink:v4
+    container_name: lavalink
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      _JAVA_OPTIONS: "-Xmx4G"
+      SERVER_ADDRESS: "0.0.0.0"
+      SERVER_PORT: "2333"
+      LAVALINK_SERVER_PASSWORD: "youshallnotpass"
+      LAVALINK_SERVER_RESAMPLING_QUALITY: "HIGH"
+      LAVALINK_SERVER_RATELIMIT_IP_BLOCKS: "[REDACTED]"
+      LAVALINK_SERVER_RATELIMIT_STRATEGY: "RotateOnBan"
+      METRICS_PROMETHEUS_ENABLED: "true"
+      METRICS_PROMETHEUS_ENDPOINT: "/metrics"
+      SENTRY_DSN: "[REDACTED]"
+      SENTRY_ENVIRONMENT: "production"
+    healthcheck:
+      test: "curl -fsSH 'Authorization: youshallnotpass' http://localhost:2333/version"
+      interval: 2s
+      timeout: 2s
+      retries: 3
+      start_period: 15s
+    volumes:
+      - /etc/docker/compose/blanco/plugins/:/opt/Lavalink/plugins/
+
+  bot:
+    image: jareddantis/blanco-bot
+    container_name: blanco
+    network_mode: host
+    depends_on:
+      lavalink:
+        condition: service_healthy
+    volumes:
+      - /etc/docker/compose/blanco/config.yml:/opt/app/config.yml
+      - /etc/docker/compose/blanco/blanco.db:/opt/app/blanco.db
+      - /etc/localtime:/etc/localtime:ro
+    restart: unless-stopped
