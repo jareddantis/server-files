@@ -1,0 +1,65 @@
+# Docker Compose spec for running Piped with nginx as reverse proxy
+# by @jareddantis, 2023
+#
+# Base path: N/A
+# Required paths:
+#   - /etc/avahi/services/
+#     > should be present after you install avahi-daemon in host system
+
+version: '3'
+
+services:
+  samba:
+    image: ghcr.io/servercontainers/samba
+    container_name: samba
+    cap_add:
+      - CAP_NET_ADMIN
+    environment:
+      AVAHI_NAME: casadantis
+
+      # Group defs
+      GROUP_family: 1500
+
+      # User defs
+      ACCOUNT_dantis: [REDACTED]
+      UID_dantis: 1000
+      GROUPS_dantis: family
+
+      # Share defs
+      SAMBA_VOLUME_CONFIG_mypassportpublic: >
+        [Public];
+        path = /shares/mypassport;
+        veto files = /Photos/$$RECYCLE.BIN/System Volume Information/Downloads/;
+        guest ok = yes;
+        writable = no;
+        read only = yes;
+        browseable = yes;
+        directory mask = 0644
+      SAMBA_VOLUME_CONFIG_mypassport: >
+        [My Passport];
+        path = /shares/mypassport;
+        valid users = dantis;
+        guest ok = no;
+        writable = yes;
+        browseable = yes;
+        read only = no;
+        create mask = 0755;
+        directory mask = 0755
+      SAMBA_VOLUME_CONFIG_transmission: >
+        [Transmission];
+        path = /shares/transmission;
+        valid users = dantis;
+        guest ok = no;
+        writable = yes;
+        browseable = no;
+        read only = no;
+        create mask = 0755;
+        directory mask = 0755
+    ports:
+      - '139:139'
+      - '445:445'
+    volumes:
+      - /mnt/mypassport/:/shares/mypassport/
+      - /etc/docker/compose/transmission/downloads/:/shares/transmission/
+      - /etc/avahi/services/:/external/avahi
+    restart: unless-stopped
