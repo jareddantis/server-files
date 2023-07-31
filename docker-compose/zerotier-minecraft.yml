@@ -1,0 +1,48 @@
+# Docker Compose spec for running a private Minecraft server through ZeroTier
+# by @jareddantis, 2023
+#
+# Base path: /etc/docker/compose/minecraft
+# Required paths:
+#   - server/
+#     > just create empty directory
+#
+# Notes:
+#   1. Server will be accessible through both ZeroTier subnet and host network subnet
+#      at port 25565
+
+version: '3.8'
+
+services:
+  zerotier:
+    image: zerotier/zerotier:latest
+    container_name: zerotier
+    command: [ZEROTIER NETWORK ID HERE]
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    devices:
+      - '/dev/net/tun:/dev/net/tun'
+    restart: unless-stopped
+    volumes:
+      - 'zerotier-one:/var/lib/zerotier-one'
+      - '/etc/localtime:/etc/localtime:ro'
+    ports:
+      - '9993:9993'
+      - '25565:25565'
+  
+  minecraft:
+    container_name: minecraft
+    image: marctv/minecraft-papermc-server:1.20
+    restart: unless-stopped
+    network_mode: 'service:zerotier'
+    depends_on:
+      zerotier:
+        condition: service_healthy
+    volumes:
+      - /etc/docker/compose/minecraft/server:/data
+    environment:
+      - MEMORYSIZE=2048M
+      - TZ=Asia/Manila
+
+volumes:
+  zerotier-one:
