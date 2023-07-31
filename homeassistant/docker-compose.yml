@@ -4,19 +4,7 @@
 # Base path: /etc/docker/compose/homeassistant
 # Required paths:
 #   - config/
-#     > just create empty directories
-#
-# Notes:
-#   1. Add the following to your configuration.yaml for HACS support:
-#        # HACS
-#        my:
-#   2. Add the following to your configuration.yaml for reverse proxy support:
-#        # Reverse proxy
-#        http:
-#          use_x_forwarded_for: true
-#          trusted_proxies:
-#            - 172.16.0.0/24     # Change to your local subnet or reverse proxy IP
-#            - ::1               # For Argo Tunnel
+#     > create empty dir and copy configuration.yaml inside
 
 version: '3'
 
