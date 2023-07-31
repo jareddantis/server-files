@@ -1,0 +1,68 @@
+# Loads default set of integrations. Do not remove.
+default_config:
+
+# Load frontend themes from the themes folder
+frontend:
+  themes: !include_dir_merge_named themes
+
+# Text to speech
+tts:
+  - platform: google_translate
+
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml
+
+# HACS
+my:
+logger:
+  default: warning
+  logs:
+    custom_components.webrtc: debug
+
+# HTTPS and Argo Tunnel
+http:
+  use_x_forwarded_for: true
+  trusted_proxies:
+    - 172.16.0.0/24
+    - ::1
+
+# System monitor
+sensor:
+  - platform: systemmonitor
+    resources:
+      - type: last_boot
+      - type: processor_use
+      - type: processor_temperature
+      - type: load_1m
+      - type: load_5m
+      - type: load_15m
+      - type: memory_use_percent
+      - type: swap_use_percent
+      - type: disk_use_percent
+        arg: /config
+
+# Template-based sensors
+template:
+  - sensor:
+    - name: "Relative humidity"
+      state: '{{ state_attr("[REDACTED]", "humidity") }}'
+      unit_of_measurement: "%"
+
+# Google Assistant
+google_assistant:
+  project_id: [REDACTED]
+  service_account: !include service_account.json
+  report_state: true
+  exposed_domains:
+    - sensor
+
+# Wake-on-LAN
+wake_on_lan:
+switch:
+  - platform: wake_on_lan
+    mac: [REDACTED]
+    name: "WOL"
+    broadcast_port: 9
+shell_command:
+  suspend_mysterymachine: "curl http://[REDACTED]/sleep"

@@ -1,9 +1,9 @@
-# Docker Compose spec for running Home Assistant and go2rtc (for WebRTC support)
+# Docker Compose spec for running Home Assistant
 # by @jareddantis, 2023
 #
 # Base path: /etc/docker/compose/homeassistant
 # Required paths:
-#   - config/, go2rtc/
+#   - config/
 #     > just create empty directories
 #
 # Notes:
@@ -30,14 +30,5 @@ services:
       - /etc/docker/compose/homeassistant/config:/config
       - /etc/localtime:/etc/localtime:ro
     restart: unless-stopped
-    environment:
-      TZ: 'Asia/Manila'
-  go2rtc:
-    image: alexxit/go2rtc
-    network_mode: host       # important for WebRTC, HomeKit, UDP cameras
-    privileged: true         # only for FFmpeg hardware transcoding
-    volumes:
-      - /etc/docker/compose/homeassistant/go2rtc:/config
-    restart: unless-stopped  # autorestart on fail or config change from WebUI
     environment:
       TZ: 'Asia/Manila'
