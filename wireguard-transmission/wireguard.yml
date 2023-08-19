@@ -1,0 +1,47 @@
+# Docker Compose spec for running Wireguard
+# by @jareddantis, 2023
+#
+# Base path: /etc/docker/compose/wireguard
+# Required paths:
+#   - config/
+#     > paste your Wireguard config here as wg0.conf
+#
+# Notes:
+#   1. Tested with Mullvad.
+#   2. Tunnel other containers through Wireguard by adding the following
+#      to their Docker Compose specs:
+#
+#          network_mode: 'container:wireguard'
+#
+#   3. Once your container's traffic is routed through Wireguard, it will
+#      no longer be accessible to your local network. For instance, you
+#      won't be able to open a Transmission WebUI. To fix this, you need
+#      to add the following to your Wireguard config's [Interface] section:
+#
+#          PostUp = DROUTE=$(ip route | grep default | awk '{print $3}'); HOMENET=172.16.0.0/21; ip route add $HOMENET via $DROUTE;iptables -I OUTPUT -d $HOMENET -j ACCEPT; iptables -A OUTPUT ! -o %i -m mark ! --mark $(wg show %i fwmark) -m addrtype ! --dst-type LOCAL -j REJECT
+#          PreDown = HOMENET=172.16.0.0/21; ip route del $HOMENET via $DROUTE; iptables -D OUTPUT ! -o %i -m mark ! --mark $(wg show %i fwmark) -m addrtype ! --dst-type LOCAL -j REJECT; iptables -D OUTPUT -d $HOMENET -j ACCEPT
+#
+#      Change HOMENET to your local network's subnet.
+
+version: '3'
+
+services:
+  wireguard:
+    image: lscr.io/linuxserver/wireguard:latest
+    container_name: wireguard
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Manila
+    volumes:
+      - /etc/docker/compose/wireguard/config:/config
+    ports:
+      - 51820:51820/udp
+      - 9091:9091/tcp       # Transmission WebUI
+      - 51413:51413         # Transmission
+    sysctls:
+      - net.ipv4.conf.all.src_valid_mark=1
+      - net.ipv6.conf.all.disable_ipv6=0
+    restart: unless-stopped
