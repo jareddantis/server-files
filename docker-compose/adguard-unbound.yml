@@ -1,0 +1,109 @@
+# Docker Compose spec for running AdGuard Home and Unbound in recursive mode
+# by @jareddantis, 2023
+#
+# Base path: /etc/docker/compose/adguard-unbound
+# Required paths:
+#   - work/, conf/, unbound/
+#     > just create empty directories
+#   - unbound/unbound.conf, root.hints
+#     > see https://docs.pi-hole.net/guides/dns/unbound/
+#     > save the pi-hole.conf file as unbound.conf
+#
+# Notes:
+#   1. This creates a network on the subnet 192.168.2.0/24. If this conflicts
+#      with your network, change the subnet, gateway, and IP addresses accordingly.
+#   2. The sync container is configured for syncing with other AGH instances
+#      over ZeroTier. Feel free to remove the service if this does not apply to you.
+
+version: '3'
+
+services:
+  unbound:
+    container_name: unbound
+    image: mvance/unbound:latest
+    ports:
+      - "5335:53/tcp"
+      - "5335:53/udp"
+    volumes:
+      - /etc/docker/compose/adguard-unbound/unbound/unbound.conf:/opt/unbound/etc/unbound/unbound.conf
+      - /etc/docker/compose/adguard-unbound/unbound/root.hints:/opt/unbound/etc/unbound/root.hints
+      - /var/log/unbound.log:/opt/unbound/etc/unbound/unbound.log
+    restart: unless-stopped
+    networks:
+      adguard_net:
+        ipv4_address: 192.168.2.2
+
+  agh:
+    image: adguard/adguardhome
+    container_name: adguardhome
+    restart: unless-stopped
+    volumes:
+      - '/etc/docker/compose/adguard-unbound/work:/opt/adguardhome/work'
+      - '/etc/docker/compose/adguard-unbound/conf:/opt/adguardhome/conf'
+      - '/etc/localtime:/etc/localtime:ro'
+    ports:
+      - 53:53/tcp         # Plain DNS
+      - 53:53/udp         # Plain DNS
+      - 80:80/tcp         # Admin
+      - 443:443/tcp       # Admin, DNS-over-HTTPS
+      - 443:443/udp       # Admin, DNS-over-HTTPS
+      - 3000:3000/tcp     # Admin
+      # - 853:853/tcp       # DNS-over-TLS
+      # - 784:784/udp       # DNS-over-QUIC
+      # - 853:853/udp       # DNS-over-QUIC
+      # - 8853:8853/udp     # DNS-over-QUIC
+      # - 5443:5443/tcp     # DNSCrypt
+      # - 5443:5443/udp     # DNSCrypt
+    networks:
+      adguard_net:
+        ipv4_address: 192.168.2.3
+
+  sync:
+    image: ghcr.io/bakito/adguardhome-sync
+    container_name: adguardhome-sync
+    restart: unless-stopped
+    command: run
+    networks:
+      adguard_net:
+        ipv4_address: 192.168.2.4
+    environment:
+      LOG_LEVEL: "info"
+      ORIGIN_URL: "http://192.168.196.1"
+      ORIGIN_USERNAME: "[REDACTED]"
+      ORIGIN_PASSWORD: "[REDACTED]"
+      REPLICA_URL: "http://192.168.196.2"
+      REPLICA_USERNAME: "[REDACTED]"
+      REPLICA_PASSWORD: "[REDACTED]"
+      REPLICA1_URL: "http://192.168.196.3"
+      REPLICA1_USERNAME: "[REDACTED]"
+      REPLICA1_PASSWORD: "[REDACTED]"
+      CRON: "30 5 * * *" # run at 5:30 AM
+      RUNONSTART: true
+
+      # Configure the sync API server, disabled if api port is 0
+      API_PORT: 8080
+
+      # Configure sync features; by default all features are enabled.
+      # FEATURES_GENERALSETTINGS: true
+      # FEATURES_QUERYLOGCONFIG: true
+      # FEATURES_STATSCONFIG: true
+      FEATURES_CLIENTSETTINGS: false
+      # FEATURES_SERVICES: true
+      # FEATURES_FILTERS: true
+      FEATURES_DHCP_SERVERCONFIG: false
+      FEATURES_DHCP_STATICLEASES: false
+      FEATURES_DNS_SERVERCONFIG: false
+      FEATURES_DNS_ACCESSLISTS: false
+      # FEATURES_DNS_REWRITES: true
+    ports:
+      - 3001:8080
+    volumes:
+      - '/etc/localtime:/etc/localtime:ro'
+
+networks:
+  adguard_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.2.0/24
+          gateway: 192.168.2.1
