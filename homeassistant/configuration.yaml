@@ -48,6 +48,9 @@ template:
     - name: "Relative humidity"
       state: '{{ state_attr("[REDACTED]", "humidity") }}'
       unit_of_measurement: "%"
+    - name: "Current temperature"
+      state: '{{ state_attr("[REDACTED]", "temperature") }}'
+      unit_of_measurement: "  C"
     - name: "Total DNS queries"
       state: >-
         {{
