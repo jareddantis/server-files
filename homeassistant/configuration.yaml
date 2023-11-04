@@ -48,6 +48,33 @@ template:
     - name: "Relative humidity"
       state: '{{ state_attr("[REDACTED]", "humidity") }}'
       unit_of_measurement: "%"
+    - name: "Total DNS queries"
+      state: >-
+        {{
+          int(states("sensor.adguard_home_dns_queries")) +
+          int(states("sensor.adguard_home_dns_queries_2")) +
+          int(states("sensor.adguard_home_dns_queries_3"))
+        }}
+      unit_of_measurement: "queries"
+    - name: "Total blocked DNS queries"
+      state: >-
+        {{
+          int(states("sensor.adguard_home_dns_queries_blocked")) +
+          int(states("sensor.adguard_home_dns_queries_blocked_2")) +
+          int(states("sensor.adguard_home_dns_queries_blocked_3"))
+        }}
+      unit_of_measurement: "queries"
+    - name: "Total blocked DNS queries ratio"
+      state: >-
+        {{
+          "{:.2f}".format(
+            100 * (
+              int(states("sensor.total_blocked_dns_queries")) /
+              int(states("sensor.total_dns_queries"))
+            )
+          )
+        }}
+      unit_of_measurement: "%"
 
 # Google Assistant
 google_assistant:
