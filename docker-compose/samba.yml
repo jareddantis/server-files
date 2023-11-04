@@ -1,4 +1,4 @@
-# Docker Compose spec for running Piped with nginx as reverse proxy
+# Docker Compose spec for running Samba in a container
 # by @jareddantis, 2023
 #
 # Base path: N/A
