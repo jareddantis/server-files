@@ -1,13 +1,13 @@
 # Docker Compose spec for running Wireguard
-# by @jareddantis, 2023
+# by @jareddantis, 2024
 #
 # Base path: /etc/docker/compose/wireguard
 # Required paths:
-#   - config/
+#   - config/wg_confs/
 #     > paste your Wireguard config here as wg0.conf
 #
 # Notes:
-#   1. Tested with Mullvad.
+#   1. Tested with Mullvad and IVPN.
 #   2. Tunnel other containers through Wireguard by adding the following
 #      to their Docker Compose specs:
 #
@@ -18,10 +18,9 @@
 #      won't be able to open a Transmission WebUI. To fix this, you need
 #      to add the following to your Wireguard config's [Interface] section:
 #
-#          PostUp = DROUTE=$(ip route | grep default | awk '{print $3}'); HOMENET=172.16.0.0/21; ip route add $HOMENET via $DROUTE;iptables -I OUTPUT -d $HOMENET -j ACCEPT; iptables -A OUTPUT ! -o %i -m mark ! --mark $(wg show %i fwmark) -m addrtype ! --dst-type LOCAL -j REJECT
-#          PreDown = HOMENET=172.16.0.0/21; ip route del $HOMENET via $DROUTE; iptables -D OUTPUT ! -o %i -m mark ! --mark $(wg show %i fwmark) -m addrtype ! --dst-type LOCAL -j REJECT; iptables -D OUTPUT -d $HOMENET -j ACCEPT
-#
-#      Change HOMENET to your local network's subnet.
+#          PostUp = DROUTE=$(ip route | grep default | awk '{print $3}'); HOMENET=192.168.0.0/16; HOMENET2=10.0.0.0/8; HOMENET3=172.16.0.0/12; ip route add $HOMENET3 via $DROUTE;ip route add $HOMENET2 via $DROUTE; ip route add $HOMENET via $DROUTE;iptables -I OUTPUT -d $HOMENET -j ACCEPT;iptables -A OUTPUT -d $HOMENET2 -j ACCEPT; iptables -A OUTPUT -d $HOMENET3 -j ACCEPT;  iptables -A OUTPUT ! -o %i -m mark ! --mark $(wg show %i fwmark) -m addrtype ! --dst-type LOCAL -j REJECT
+#          PreDown = HOMENET=192.168.0.0/16; HOMENET2=10.0.0.0/8; HOMENET3=172.16.0.0/12; ip route del $HOMENET3 via $DROUTE;ip route del $HOMENET2 via $DROUTE; ip route del $HOMENET via $DROUTE; iptables -D OUTPUT ! -o %i -m mark ! --mark $(wg show %i fwmark) -m addrtype ! --dst-type LOCAL -j REJECT; iptables -D OUTPUT -d $HOMENET -j ACCEPT; iptables -D OUTPUT -d $HOMENET2 -j ACCEPT; iptables -D OUTPUT -d $HOMENET3 -j ACCEPT
+
 
 version: '3'
 
@@ -31,17 +30,19 @@ services:
     container_name: wireguard
     cap_add:
       - NET_ADMIN
+      # - SYS_MODULE                  # Only if wireguard module isn't enabled in your kernel
     environment:
       - PUID=1000
       - PGID=1000
       - TZ=Asia/Manila
     volumes:
       - /etc/docker/compose/wireguard/config:/config
+      # - /lib/modules:/lib/modules   # Only if wireguard module isn't enabled in your kernel
     ports:
       - 51820:51820/udp
       - 9091:9091/tcp       # Transmission WebUI
       - 51413:51413         # Transmission
     sysctls:
       - net.ipv4.conf.all.src_valid_mark=1
-      - net.ipv6.conf.all.disable_ipv6=0
+      - net.ipv6.conf.all.disable_ipv6=0 # Optional, required for IPv6 peers to connect
     restart: unless-stopped
