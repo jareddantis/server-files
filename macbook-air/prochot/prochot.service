@@ -1,0 +1,10 @@
+[Unit]
+Description=Disable bd_prochot
+
+[Service]
+ExecStart=/usr/local/etc/prochot.sh 4005d 4005c
+ExecStop=/usr/local/etc/prochot.sh 4005c 4005d
+RemainAfterExit=true
+
+[Install]
+WantedBy=multi-user.target
