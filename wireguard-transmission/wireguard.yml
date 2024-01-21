@@ -2,47 +2,48 @@
 # by @jareddantis, 2024
 #
 # Base path: /etc/docker/compose/wireguard
-# Required paths:
-#   - config/wg_confs/
-#     > paste your Wireguard config here as wg0.conf
 #
 # Notes:
-#   1. Tested with Mullvad and IVPN.
+#   1. Tested with Mullvad.
 #   2. Tunnel other containers through Wireguard by adding the following
 #      to their Docker Compose specs:
 #
-#          network_mode: 'container:wireguard'
+#          network_mode: 'container:gluetun'
 #
-#   3. Once your container's traffic is routed through Wireguard, it will
-#      no longer be accessible to your local network. For instance, you
-#      won't be able to open a Transmission WebUI. To fix this, you need
-#      to add the following to your Wireguard config's [Interface] section:
+#   3. Change WIREGUARD_PRIVATE_KEY, WIREGUARD_ADDRESSES, and SERVER_HOSTNAMES
+#      to your own values. Generate a .conf file through your VPN's website and
+#      use the values from PrivateKey and Address. You can use multiple
+#      servers by separating them with commas, or leave it blank to let
+#      gluetun choose the best server for you.
 #
-#          PostUp = DROUTE=$(ip route | grep default | awk '{print $3}'); HOMENET=192.168.0.0/16; HOMENET2=10.0.0.0/8; HOMENET3=172.16.0.0/12; ip route add $HOMENET3 via $DROUTE;ip route add $HOMENET2 via $DROUTE; ip route add $HOMENET via $DROUTE;iptables -I OUTPUT -d $HOMENET -j ACCEPT;iptables -A OUTPUT -d $HOMENET2 -j ACCEPT; iptables -A OUTPUT -d $HOMENET3 -j ACCEPT;  iptables -A OUTPUT ! -o %i -m mark ! --mark $(wg show %i fwmark) -m addrtype ! --dst-type LOCAL -j REJECT
-#          PreDown = HOMENET=192.168.0.0/16; HOMENET2=10.0.0.0/8; HOMENET3=172.16.0.0/12; ip route del $HOMENET3 via $DROUTE;ip route del $HOMENET2 via $DROUTE; ip route del $HOMENET via $DROUTE; iptables -D OUTPUT ! -o %i -m mark ! --mark $(wg show %i fwmark) -m addrtype ! --dst-type LOCAL -j REJECT; iptables -D OUTPUT -d $HOMENET -j ACCEPT; iptables -D OUTPUT -d $HOMENET2 -j ACCEPT; iptables -D OUTPUT -d $HOMENET3 -j ACCEPT
-
+#      Gluetun's current server list can be found here:
+#
+#          https://raw.githubusercontent.com/qdm12/gluetun/master/internal/storage/servers.json
+#
+#   4. To enable IPv6, uncomment the sysctl lines. Be aware that this might
+#      cause gluetun to connect to your VPN over IPv6, which will fail if your
+#      Docker host isn't native IPv6.
 
 version: '3'
 
 services:
-  wireguard:
-    image: lscr.io/linuxserver/wireguard:latest
-    container_name: wireguard
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    container_name: gluetun
     cap_add:
       - NET_ADMIN
-      # - SYS_MODULE                  # Only if wireguard module isn't enabled in your kernel
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Asia/Manila
-    volumes:
-      - /etc/docker/compose/wireguard/config:/config
-      # - /lib/modules:/lib/modules   # Only if wireguard module isn't enabled in your kernel
+    devices:
+      - /dev/net/tun:/dev/net/tun
     ports:
-      - 51820:51820/udp
-      - 9091:9091/tcp       # Transmission WebUI
-      - 51413:51413         # Transmission
-    sysctls:
-      - net.ipv4.conf.all.src_valid_mark=1
-      - net.ipv6.conf.all.disable_ipv6=0 # Optional, required for IPv6 peers to connect
+      - 9091:9091/tcp       # Transmission WebUI - comment this out if you're not using Transmission
+      - 51413:51413         # Transmission inbound port - comment this out if you're not using Transmission
+    environment:
+      - VPN_SERVICE_PROVIDER=mullvad
+      - VPN_TYPE=wireguard
+      - TZ=<changeme>
+      - WIREGUARD_PRIVATE_KEY=[REDACTED]
+      - WIREGUARD_ADDRESSES=[REDACTED]
+      - SERVER_HOSTNAMES=<changeme>
     restart: unless-stopped
+    # sysctls:
+    #   - net.ipv6.conf.all.disable_ipv6=0

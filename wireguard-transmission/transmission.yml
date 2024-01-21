@@ -1,13 +1,10 @@
-# Docker Compose spec for running Transmission with a VPN container
-# by @jareddantis, 2023
+# Docker Compose spec for running Transmission through a VPN container
+# by @jareddantis, 2023-2024
 #
 # Base path: /etc/docker/compose/transmission
 # Required paths:
 #   - config/, watch/, downloads/
 #     > just create empty directory
-#   - filebrowser/
-#     > create an empty file named filebrowser.db (use `touch`)
-#     > copy settings.json from calibre/ in repo to this folder
 #
 # Notes:
 #   1. The filebrowser service opens a simple web UI for uploading
@@ -15,6 +12,7 @@
 #      it's convenient. Access via port 9092.
 
 version: '3.8'
+
 services:
   transmission:
     image: lscr.io/linuxserver/transmission:latest
@@ -26,27 +24,13 @@ services:
       - TRANSMISSION_WEB_HOME=/ui/flood
       - USER=transmission
       - PASS=<changeme>
-    network_mode: 'container:wireguard'         # Comment this out if you're not using Wireguard
-    # ports:                                    # UNcomment this out if you're not using Wireguard
-    #   - 9091:9091/tcp                         # UNcomment this out if you're not using Wireguard
-    #   - 51413:51413                           # UNcomment this out if you're not using Wireguard
+    network_mode: 'container:gluetun'         # Comment this out if you're not using Wireguard
+    # ports:                                  # UNcomment this out if you're not using Wireguard
+    #   - 9091:9091/tcp                       # UNcomment this out if you're not using Wireguard
+    #   - 51413:51413                         # UNcomment this out if you're not using Wireguard
     volumes:
       - /etc/docker/compose/transmission/config:/config
       - /etc/docker/compose/transmission/watch:/watch
       - /etc/docker/compose/transmission/flood-for-transmission:/ui/flood
       - /etc/docker/compose/transmission/downloads:/downloads
-    restart: unless-stopped
-  filebrowser:
-    image: filebrowser/filebrowser:s6
-    container_name: transmission-filebrowser
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Asia/Manila
-    volumes:
-      - /etc/docker/compose/transmission/watch:/srv
-      - /etc/docker/compose/transmission/filebrowser/filebrowser.db:/database/filebrowser.db
-      - /etc/docker/compose/transmission/filebrowser/settings.json:/config/settings.json
-    ports:
-      - 9092:80
     restart: unless-stopped
