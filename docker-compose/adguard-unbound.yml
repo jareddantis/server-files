@@ -1,19 +1,27 @@
 # Docker Compose spec for running AdGuard Home and Unbound in recursive mode
-# by @jareddantis, 2023
+# by @jareddantis, 2023-2024
 #
 # Base path: /etc/docker/compose/adguard-unbound
 # Required paths:
-#   - work/, conf/, unbound/
+#   - work/, conf/
 #     > just create empty directories
-#   - unbound/unbound.conf, root.hints
+#   - unbound.conf
 #     > see https://docs.pi-hole.net/guides/dns/unbound/
 #     > save the pi-hole.conf file as unbound.conf
+#   - root.hints
+#     > curl -o root.hints https://www.internic.net/domain/named.cache (every 6 months)
+#     > or if you're using Debian, apt install dns-root-dat
+#       and mount /usr/share/dns/root.hints into the container
+#   - /var/log/unbound.log
+#     > touch /var/log/unbound.log
+#     > chown 1000:1000 /var/log/unbound.log
+#     > make sure you have logrotate installed and configured to rotate this file
 #
 # Notes:
 #   1. This creates a network on the subnet 192.168.2.0/24. If this conflicts
 #      with your network, change the subnet, gateway, and IP addresses accordingly.
-#   2. The sync container is configured for syncing with other AGH instances
-#      over ZeroTier. Feel free to remove the service if this does not apply to you.
+#   2. The sync container is configured for syncing with other AGH instances.
+#      Feel free to remove the service if this does not apply to you.
 
 version: '3'
 
@@ -25,8 +33,8 @@ services:
       - "5335:53/tcp"
       - "5335:53/udp"
     volumes:
-      - /etc/docker/compose/adguard-unbound/unbound/unbound.conf:/opt/unbound/etc/unbound/unbound.conf
-      - /etc/docker/compose/adguard-unbound/unbound/root.hints:/opt/unbound/etc/unbound/root.hints
+      - /etc/docker/compose/adguard-unbound/unbound.conf:/opt/unbound/etc/unbound/unbound.conf
+      - /etc/docker/compose/adguard-unbound/root.hints:/opt/unbound/etc/unbound/root.hints
       - /var/log/unbound.log:/opt/unbound/etc/unbound/unbound.log
     restart: unless-stopped
     networks:
@@ -63,20 +71,17 @@ services:
     container_name: adguardhome-sync
     restart: unless-stopped
     command: run
-    networks:
-      adguard_net:
-        ipv4_address: 192.168.2.4
     environment:
       LOG_LEVEL: "info"
       ORIGIN_URL: "http://192.168.196.1"
       ORIGIN_USERNAME: "[REDACTED]"
       ORIGIN_PASSWORD: "[REDACTED]"
-      REPLICA_URL: "http://192.168.196.2"
-      REPLICA_USERNAME: "[REDACTED]"
-      REPLICA_PASSWORD: "[REDACTED]"
-      REPLICA1_URL: "http://192.168.196.3"
+      REPLICA1_URL: "http://192.168.196.2"
       REPLICA1_USERNAME: "[REDACTED]"
       REPLICA1_PASSWORD: "[REDACTED]"
+      REPLICA2_URL: "http://192.168.196.3"
+      REPLICA2_USERNAME: "[REDACTED]"
+      REPLICA2_PASSWORD: "[REDACTED]"
       CRON: "30 5 * * *" # run at 5:30 AM
       RUNONSTART: true
 
