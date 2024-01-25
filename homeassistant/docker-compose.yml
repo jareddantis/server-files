@@ -1,7 +1,7 @@
 # Docker Compose spec for running Home Assistant
 # by @jareddantis, 2023-2024
 #
-# Base path: /etc/docker/compose/homeassistant
+# Base path: /etc/docker/compose/hassio-core
 # Required paths:
 #   - config/
 #     > create empty dir and copy configuration.yaml inside
