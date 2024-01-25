@@ -1,22 +1,67 @@
 # Docker Compose spec for running Home Assistant
-# by @jareddantis, 2023
+# by @jareddantis, 2023-2024
 #
 # Base path: /etc/docker/compose/homeassistant
 # Required paths:
 #   - config/
 #     > create empty dir and copy configuration.yaml inside
+#   - go2rtc/
+#     > create empty dir
+#
+# Notes:
+#   1. This uses the linuxserver.io Home Assistant image instead
+#      of the official one. This is because the LSIO image runs
+#      without privileged mode by default.
+#      You can swap it out for the official one if you like - just
+#      change the image name to homeassistant/home-assistant:latest.
+#   2. This uses the go2rtc image for hardware-accelerated transcoding
+#      of video streams. If you don't need this, comment out the
+#      go2rtc service and the depends_on line in the homeassistant service.
+#   3. The official go2rtc documentation recommends enabling privileged
+#      mode for ffmpeg hardware transcode, but in my experience it works
+#      fine without it. If you run into issues, you can enable privileged
+#      mode by adding the following line to the go2rtc service:
+#
+#        privileged: true
 
 version: '3'
 
 services:
-  homeassistant:
-    container_name: homeassistant
-    image: ghcr.io/home-assistant/home-assistant:stable
+  go2rtc: # Comment out if not using go2rtc / WebRTC Camera
+    image: alexxit/go2rtc:master-hardware
+    container_name: go2rtc
     network_mode: host
-    privileged: true
-    volumes:
-      - /etc/docker/compose/homeassistant/config:/config
-      - /etc/localtime:/etc/localtime:ro
     restart: unless-stopped
+    devices:
+      - /dev/dri:/dev/dri
+    healthcheck:
+      test: "curl --silent http://localhost:1984"
+      interval: 2s
+      timeout: 2s
+      retries: 3
+      start_period: 15s
     environment:
-      TZ: 'Asia/Manila'
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Manila
+    volumes:
+      - /etc/docker/compose/hassio-core/go2rtc:/config
+
+  homeassistant:
+    image: lscr.io/linuxserver/homeassistant:latest
+    container_name: hassio
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    network_mode: host
+    volumes:
+      - /etc/docker/compose/hassio-core/config:/config
+      - /var/run/dbus:/var/run/dbus:ro
+    depends_on: # Comment out if not using go2rtc / WebRTC Camera
+      go2rtc:
+        condition: service_healthy
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Manila
+    restart: unless-stopped
