@@ -1,46 +1,19 @@
-# Docker Compose spec for running AdGuard Home and Unbound in recursive mode
+# Docker Compose spec for running AdGuard Home with Unbound
 # by @jareddantis, 2023-2024
 #
-# Base path: /etc/docker/compose/adguard-unbound
+# Base path: /etc/docker/compose/adguard
 # Required paths:
 #   - work/, conf/
 #     > just create empty directories
-#   - unbound.conf
-#     > see https://docs.pi-hole.net/guides/dns/unbound/
-#     > save the pi-hole.conf file as unbound.conf
-#   - root.hints
-#     > curl -o root.hints https://www.internic.net/domain/named.cache (every 6 months)
-#     > or if you're using Debian, apt install dns-root-dat
-#       and mount /usr/share/dns/root.hints into the container
-#   - /var/log/unbound.log
-#     > touch /var/log/unbound.log
-#     > chown 1000:1000 /var/log/unbound.log
-#     > make sure you have logrotate installed and configured to rotate this file
 #
 # Notes:
-#   1. This creates a network on the subnet 192.168.2.0/24. If this conflicts
-#      with your network, change the subnet, gateway, and IP addresses accordingly.
+#   1. This depends on the network specified in unbound.yml.
 #   2. The sync container is configured for syncing with other AGH instances.
 #      Feel free to remove the service if this does not apply to you.
 
 version: '3'
 
 services:
-  unbound:
-    container_name: unbound
-    image: mvance/unbound:latest
-    ports:
-      - "5335:53/tcp"
-      - "5335:53/udp"
-    volumes:
-      - /etc/docker/compose/adguard-unbound/unbound.conf:/opt/unbound/etc/unbound/unbound.conf
-      - /etc/docker/compose/adguard-unbound/root.hints:/opt/unbound/etc/unbound/root.hints
-      - /var/log/unbound.log:/opt/unbound/etc/unbound/unbound.log
-    restart: unless-stopped
-    networks:
-      adguard_net:
-        ipv4_address: 192.168.2.2
-
   agh:
     image: adguard/adguardhome
     container_name: adguardhome
@@ -63,7 +36,7 @@ services:
       # - 5443:5443/tcp     # DNSCrypt
       # - 5443:5443/udp     # DNSCrypt
     networks:
-      adguard_net:
+      default:
         ipv4_address: 192.168.2.3
 
   sync:
@@ -100,15 +73,15 @@ services:
       FEATURES_DNS_SERVERCONFIG: false
       FEATURES_DNS_ACCESSLISTS: false
       # FEATURES_DNS_REWRITES: true
+    networks:
+      default:
+        ipv4_address: 192.168.2.4
     ports:
       - 3001:8080
     volumes:
       - '/etc/localtime:/etc/localtime:ro'
 
 networks:
-  adguard_net:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 192.168.2.0/24
-          gateway: 192.168.2.1
+  default:
+    name: unbound
+    external: true

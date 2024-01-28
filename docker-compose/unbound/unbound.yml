@@ -1,0 +1,52 @@
+# Docker Compose spec for running Unbound in recursive mode
+# by @jareddantis, 2024
+#
+# Base path: /etc/docker/compose/unbound
+# Required paths:
+#   - unbound.conf
+#     > copy from https://docs.pi-hole.net/guides/dns/unbound/
+#     > or use the supplied unbound.conf file as a template
+#   - root.hints
+#     > curl -o root.hints https://www.internic.net/domain/named.cache (every 6 months)
+#     > or if you're using Debian, apt install dns-root-dat
+#       and mount /usr/share/dns/root.hints into the container
+#   - /var/log/unbound.log
+#     > touch /var/log/unbound.log
+#     > chown 1000:1000 /var/log/unbound.log
+#
+# Notes:
+#   1. This creates a network on the subnet 192.168.2.0/24. If this conflicts
+#      with your network, change the subnet, gateway, and IP addresses accordingly.
+#   2. The unbound log file will grow very large depending on configured verbosity.
+#      Make sure logrotate is configured to rotate this log file at least daily.
+#      A sample logrotate configuration is supplied in unbound-logrotate;
+#      this file is usually put in /etc/logrotate.d. The sample configuration
+#      restarts the unbound container after rotation (the image does not support
+#      unbound-control).
+
+version: '3'
+
+services:
+  unbound:
+    container_name: unbound
+    image: mvance/unbound:latest
+    ports: # Comment out if you don't need Unbound to be accessible from host
+      - "5335:53/tcp"
+      - "5335:53/udp"
+    volumes:
+      - /etc/docker/compose/unbound/unbound.conf:/opt/unbound/etc/unbound/unbound.conf
+      - /etc/docker/compose/unbound/root.hints:/opt/unbound/etc/unbound/root.hints
+      - /var/log/unbound.log:/opt/unbound/etc/unbound/unbound.log
+    restart: unless-stopped
+    networks:
+      adguard_net:
+        ipv4_address: 192.168.2.2
+
+networks:
+  default:
+    name: unbound
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.2.0/24
+          gateway: 192.168.2.1
