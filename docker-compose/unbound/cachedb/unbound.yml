@@ -1,0 +1,71 @@
+# Docker Compose spec for running Unbound in recursive mode, with Redis support
+# by @jareddantis, 2024
+#
+# Base path: /etc/docker/compose/unbound
+# Required paths:
+#   - unbound.conf
+#     > use the supplied unbound.conf file as a template
+#   - redis.conf
+#     > Google is your friend here; generally I set it to ~2MB max + allkeys-lru
+#   - root.hints
+#     > download from https://www.internic.net/domain/named.cache every 6 months
+#     > or if you're using Debian, apt install dns-root-data
+#       and mount /usr/share/dns/root.hints into the container
+#   - /var/log/unbound.log
+#     > touch /var/log/unbound.log
+#     > chown 1000:1000 /var/log/unbound.log
+#
+# Notes:
+#   1. This creates a network on the subnet 192.168.2.0/24. If this conflicts
+#      with your network, change the subnet, gateway, and IP addresses accordingly.
+#   2. The unbound log file will grow very large depending on configured verbosity.
+#      Make sure logrotate is configured to rotate this log file at least daily.
+#      A sample logrotate configuration is supplied in unbound-logrotate;
+#      this file is usually put in /etc/logrotate.d. The sample configuration
+#      restarts the unbound container after rotation (the image does not support
+#      unbound-control).
+#   3. IMPORTANT: If you set a password for your Redis server, make sure to set it
+#      under redis-server-password in unbound.conf and in the healthcheck too.
+
+version: '3'
+
+services:
+  cache:
+    image: redis/redis-stack-server:latest
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "redis-cli", "-a", "changeme", "--raw", "incr", "ping" ] # Make sure to change the password
+    volumes:
+      - 'redis:/data'
+      - '/etc/docker/compose/unbound/redis.conf:/redis-stack.conf:ro'
+    networks:
+      default:
+        ipv4_address: 192.168.4.2
+
+  resolver:
+    image: ghcr.io/jareddantis/unbound-docker-cachedb:latest
+    depends_on:
+      cache:
+        condition: service_healthy
+    volumes:
+      - '/etc/docker/compose/unbound/unbound.conf:/opt/unbound/etc/unbound/unbound.conf:ro'
+      - '/etc/docker/compose/unbound/root.hints:/opt/unbound/etc/unbound/root.hints:ro'
+      - '/var/log/unbound.log:/opt/unbound/etc/unbound/unbound.log'
+    restart: unless-stopped
+    ports: # Comment out if you don't need Unbound to be accessible from host
+      - 5335:53/tcp
+      - 5335:53/udp
+
+volumes:
+  redis:
+
+networks:
+  default:
+    name: unbound
+    driver: bridge
+    # enable_ipv6: true
+    ipam:
+      driver: default
+      config:
+        - gateway: 192.168.2.1
+          subnet: 192.168.2.0/24
