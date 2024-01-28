@@ -7,7 +7,7 @@
 	notifempty
 	compress
 	delaycompress
-	create 640 debian docker
+	create 640 1000 1000
 	sharedscripts
 	postrotate
 		[ ! "$(/usr/bin/docker ps -a | grep unbound)" ] || /usr/bin/docker container restart unbound

@@ -7,8 +7,8 @@
 #     > copy from https://docs.pi-hole.net/guides/dns/unbound/
 #     > or use the supplied unbound.conf file as a template
 #   - root.hints
-#     > curl -o root.hints https://www.internic.net/domain/named.cache (every 6 months)
-#     > or if you're using Debian, apt install dns-root-dat
+#     > download from https://www.internic.net/domain/named.cache every 6 months
+#     > or if you're using Debian, apt install dns-root-data
 #       and mount /usr/share/dns/root.hints into the container
 #   - /var/log/unbound.log
 #     > touch /var/log/unbound.log
