@@ -1,0 +1,67 @@
+# Docker Compose spec for running Caddy with Cloudflare DNS-01 SSL validation
+# by @jareddantis, 2024
+#
+# Base path: /etc/docker/compose/caddy
+# Required paths:
+#   - Caddyfile
+#     > make your own depending on your config
+#   - certs/, config/, data/, sites/
+#     > just create empty directories
+#
+# Notes:
+#   1. To make automatic SSL work with Cloudflare, create a Cloudflare API
+#      token with DNS management permissions for your domain and set it
+#      in the env variables and in Caddyfile.
+#      If you don't use Cloudflare for your DNS, feel free to remove the
+#      Cloudflare env vars and switch to the caddy:alpine image.
+#      If you prefer to build the image from source, uncomment the 'build:'
+#      stanza.
+#   2. The first two bind mounts are for my AdGuard Home instance. I manage
+#      the certificate for it manually because AdGuard Home also uses SSL
+#      for DNS-over-TLS and DNS-over-QUIC. Remove these lines when you
+#      deploy.
+#   3. This Compose spec creates a network 'caddy' with subnet 172.28.7.0/24,
+#      so you can reverse proxy other containers by attaching them to this
+#      network and referring to them by service name instead of IP.
+#      Change the subnet if it overlaps with another network.
+
+version: '3.8'
+
+services:
+  caddy:
+    image: slothcroissant/caddy-cloudflaredns:latest
+    container_name: caddy
+    # build:
+    #   dockerfile_inline: |
+    #     FROM caddy:builder AS builder
+    #     RUN caddy-builder github.com/caddy-dns/cloudflare
+    #     FROM caddy:latest
+    #     COPY --from=builder /usr/bin/caddy /usr/bin/caddy
+    restart: always
+    environment:
+      - CLOUDFLARE_EMAIL=<changeme>
+      - CLOUDFLARE_API_TOKEN=<changeme>
+      - ACME_AGREE=true
+    volumes:
+      - '/etc/letsencrypt/live/securelookup.dantis.me/fullchain.pem:/certs-r3/securelookup.crt:ro'
+      - '/etc/letsencrypt/live/securelookup.dantis.me/privkey.pem:/certs-r3/securelookup.key:ro'
+      - /etc/docker/compose/caddy/Caddyfile:/etc/caddy/Caddyfile
+      - /etc/docker/compose/caddy/certs:/certs
+      - /etc/docker/compose/caddy/config:/config
+      - /etc/docker/compose/caddy/data:/data
+      - /etc/docker/compose/caddy/sites:/srv
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - 443:443/tcp    # HTTPS
+      - 443:443/udp    # QUIC
+      - 80:80/tcp      # For setting up HTTP->HTTPS redirects
+
+networks:
+  default:
+    name: caddy
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.28.7.0/24
+          gateway: 172.28.7.1

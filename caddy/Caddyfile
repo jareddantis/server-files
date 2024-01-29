@@ -1,0 +1,30 @@
+(cftls) {
+    tls <CLOUDFLARE EMAIL - CHANGEME> {
+        dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+    }
+}
+
+# AdGuard Home
+*.securelookup.dantis.me, securelookup.dantis.me {
+    reverse_proxy * agh:80 {
+        header_up X-Real-IP {remote_host}
+    }
+    tls /certs-r3/securelookup.crt /certs-r3/securelookup.key
+    encode zstd gzip
+#     log {
+#         output file /logs/securelookup.log
+#     }
+}
+
+# ZeroTier controller
+zt.dantis.me {
+    reverse_proxy zero-ui:4000
+    import cftls
+}
+
+# Nextcloud
+cloud.dantis.me {
+    reverse_proxy 192.168.196.1:11000
+    header Strict-Transport-Security max-age=31536000;
+    import cftls
+}
