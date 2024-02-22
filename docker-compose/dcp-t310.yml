@@ -1,0 +1,62 @@
+# Docker Compose spec for sharing Brother DCP-T310 printer and
+# scanner over the network in a containerized manner
+# by @jareddantis, 2024
+#
+# Base path: /etc/docker/compose/dcp-t310
+# Required paths:
+#   - cups-config/, scans/
+#     > just create empty directories
+#   - /etc/avahi/services/
+#     > should be present after you install avahi-daemon in host system
+
+version: '3'
+
+services:
+  cups:
+    image: jareddantis/dcp-t310-cups:latest
+    build:
+      dockerfile_inline: |
+        FROM anujdatar/cups:latest
+        RUN dpkg --add-architecture i386 \
+          && apt update \
+          && apt dist-upgrade -y \
+          && apt clean \
+          && rm -rf /var/lib/apt/lists/*
+        ADD https://download.brother.com/welcome/dlf103618/dcpt310pdrv-1.0.1-0.i386.deb /tmp/drv.deb
+        RUN dpkg -i /tmp/drv.deb && rm /tmp/drv.deb
+        CMD ["/entrypoint.sh"]
+    container_name: cups
+    restart: unless-stopped
+    ports:
+      - 631:631
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
+    environment:
+      - CUPSADMIN=dantis
+      - CUPSPASSWORD=changeme
+      - TZ=Asia/Manila
+    volumes:
+      - /etc/docker/compose/dcp-t310/cups-config:/etc/cups
+      - /etc/avahi/services:/etc/avahi/services
+      - /var/run/dbus:/var/run/dbus
+      - /var/log/cups:/var/log/cups
+
+  scanservjs:
+    image: jareddantis/dcp-t310-scanservjs:latest
+    build:
+      dockerfile_inline: |
+        FROM sbs20/scanservjs:latest
+        ADD https://download.brother.com/welcome/dlf105200/brscan4-0.4.11-1.amd64.deb /tmp/drv.deb
+        RUN dpkg -i /tmp/drv.deb && rm /tmp/drv.deb
+        ENTRYPOINT [ "/entrypoint.sh" ]
+    container_name: scanservjs
+    restart: unless-stopped
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
+    ports:
+      - 8080:8080/tcp
+    environment:
+      - TZ=Asia/Manila
+    volumes:
+      - /etc/docker/compose/dcp-t310/scans:/usr/lib/scanservjs/data/output
+      - /var/run/dbus:/var/run/dbus
